@@ -46,6 +46,11 @@ main:
             grep -q "openssh-server" .ide/Dockerfile && echo "Remote-SSH 支持 OK"
             grep -q "^        build: .ide/Dockerfile" .cnb.yml && echo "开发镜像 build-only OK"
             ! grep -qE "^\s*image: cnbcool/default-dev-env" .cnb.yml && echo "无回退镜像 OK"
+            # Dockerfile 中 COPY 的源路径相对构建上下文根 (/workspace), 必须真实存在
+            while read -r src; do
+              test -e "$src" || { echo "ERROR: Dockerfile COPY 源不存在: $src"; exit 1; }
+            done < <(grep -oE '^COPY [^ ]+' .ide/Dockerfile | awk '{print $2}')
+            echo "Dockerfile COPY 源路径 OK"
 
 # 任意分支可手动触发 (分支详情页按钮, 按钮定义在 .cnb/web_trigger.yml)
 "**":
