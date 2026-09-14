@@ -1,0 +1,61 @@
+name: kernel
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'patches/**'
+      - 'dts/**'
+      - '.github/workflows/kernel.yml'
+  workflow_dispatch:
+    inputs:
+      defconfig:
+        description: 'defconfig name'
+        default: 'tinker_board_2_defconfig'
+      extra_mk:
+        description: 'extra make targets (default Image + dtbs)'
+        default: 'Image dtbs'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-10-aarch64-linux-gnu bc bison flex libssl-dev
+          aarch64-linux-gnu-gcc --version | head -1
+
+      - name: Fetch kernel source (github-to-github)
+        run: |
+          git clone --depth 1 -b android11-rk3399 \
+            https://github.com/TinkerBoard2-Android/kernel.git kernel
+
+      - name: Apply patches
+        run: |
+          cd kernel
+          git apply --ignore-whitespace --verbose ../patches/remotectl_mouse_4.19.patch
+          grep -n "RMC_KEY_MOUSE_TOGGLE" drivers/input/remotectl/rockchip_pwm_remotectl.c
+
+      - name: Build
+        run: |
+          cd kernel
+          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          make ${{ github.event.inputs.defconfig || 'tinker_board_2_defconfig' }}
+          make -j$(nproc) ${{ github.event.inputs.extra_mk || 'Image dtbs' }} KCFLAGS="-Wno-error"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          cp kernel/arch/arm64/boot/Image out/ 2>/dev/null || true
+          gzip -c kernel/arch/arm64/boot/Image > out/Image.gz 2>/dev/null || true
+          find kernel/arch/arm64/boot/dts -name '*.dtb' -exec cp {} out/ \;
+          cp kernel/.config out/kernel.config
+          ls -la out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rk3399-kernel-${{ github.run_number }}
+          path: out/

@@ -1,0 +1,228 @@
+diff --git a/drivers/input/remotectl/rockchip_pwm_remotectl.c b/drivers/input/remotectl/rockchip_pwm_remotectl.c
+index 4392f57..9655a15 100644
+--- a/drivers/input/remotectl/rockchip_pwm_remotectl.c
++++ b/drivers/input/remotectl/rockchip_pwm_remotectl.c
+@@ -45,6 +45,19 @@ module_param_named(dbg_level, rk_remote_pwm_dbg_level, int, 0644);
+ 	} while (0)
+ 
+ 
++/*
++ * Reserved keycodes (key_table values, never emitted as EV_KEY):
++ * interpreted by the driver for mouse-mode support.
++ */
++#define RMC_KEY_MOUSE_UP	0x1011
++#define RMC_KEY_MOUSE_DOWN	0x1012
++#define RMC_KEY_MOUSE_LEFT	0x1013
++#define RMC_KEY_MOUSE_RIGHT	0x1014
++#define RMC_KEY_MOUSE_OK	0x10c0
++#define RMC_KEY_MOUSE_TOGGLE	0x10f0
++#define RMC_MOUSE_STEP		10
++
++
+ struct rkxx_remote_key_table {
+ 	int scancode;
+ 	int keycode;
+@@ -67,6 +80,10 @@ struct rkxx_remotectl_drvdata {
+ 	int keycode;
+ 	int press;
+ 	int pre_press;
++	int mouse_mode;
++	int mouse_held;
++	int mouse_btn;
++	int sent_key;
+ 	int irq;
+ 	int remote_pwm_id;
+ 	int handle_cpu_id;
+@@ -117,6 +134,61 @@ static int remotectl_keycode_lookup(struct rkxx_remotectl_drvdata *ddata)
+ 	return 0;
+ }
+ 
++static bool rmc_key_is_mouse(int keycode)
++{
++	return ((keycode & 0xf000) == 0x1000);
++}
++
++static int rmc_dpad_code(int keycode)
++{
++	static const int dpad[4] = { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT };
++
++	if (keycode < RMC_KEY_MOUSE_UP || keycode > RMC_KEY_MOUSE_RIGHT)
++		return 0;
++
++	return dpad[keycode - RMC_KEY_MOUSE_UP];
++}
++
++static void rmc_mouse_move(struct rkxx_remotectl_drvdata *ddata, int held)
++{
++	int dx = 0;
++	int dy = 0;
++
++	switch (held) {
++	case RMC_KEY_MOUSE_UP:
++		dy = -RMC_MOUSE_STEP;
++		break;
++	case RMC_KEY_MOUSE_DOWN:
++		dy = RMC_MOUSE_STEP;
++		break;
++	case RMC_KEY_MOUSE_LEFT:
++		dx = -RMC_MOUSE_STEP;
++		break;
++	case RMC_KEY_MOUSE_RIGHT:
++		dx = RMC_MOUSE_STEP;
++		break;
++	default:
++		return;
++	}
++
++	input_report_rel(ddata->input, REL_X, dx);
++	input_report_rel(ddata->input, REL_Y, dy);
++}
++
++static void rmc_key_release(struct rkxx_remotectl_drvdata *ddata)
++{
++	if (ddata->mouse_btn) {
++		input_event(ddata->input, EV_KEY, BTN_MIDDLE, 0);
++		ddata->mouse_btn = 0;
++	}
++	if (ddata->sent_key) {
++		input_event(ddata->input, EV_KEY, ddata->sent_key, 0);
++		ddata->sent_key = 0;
++	}
++	ddata->mouse_held = 0;
++	input_sync(ddata->input);
++}
++
+ static int rk_remotectl_get_irkeybd_count(struct platform_device *pdev)
+ {
+ 	struct device_node *node = pdev->dev.of_node;
+@@ -240,8 +312,58 @@ static void rk_pwm_remotectl_do_something(unsigned long  data)
+ 		    ((~ddata->scandata >> 8) & 0x0ff)) {
+ 			if (remotectl_keycode_lookup(ddata)) {
+ 				ddata->press = 1;
+-				input_event(ddata->input, EV_KEY,
+-					    ddata->keycode, 1);
++				ddata->sent_key = 0;
++				if (rmc_key_is_mouse(ddata->keycode)) {
++					switch (ddata->keycode) {
++					case RMC_KEY_MOUSE_TOGGLE:
++						ddata->mouse_mode =
++							!ddata->mouse_mode;
++						rmc_key_release(ddata);
++						DBG_CODE("RMC mouse_mode=%d\n",
++							 ddata->mouse_mode);
++						break;
++					case RMC_KEY_MOUSE_OK:
++						if (ddata->mouse_mode) {
++							input_event(ddata->input,
++								    EV_KEY,
++								    BTN_MIDDLE,
++								    1);
++							ddata->mouse_btn = 1;
++						} else {
++							input_event(ddata->input,
++								    EV_KEY,
++								    KEY_REPLY,
++								    1);
++							ddata->sent_key =
++								KEY_REPLY;
++						}
++						break;
++					default:
++						if (ddata->keycode <
++						    RMC_KEY_MOUSE_UP ||
++						    ddata->keycode >
++						    RMC_KEY_MOUSE_RIGHT)
++							break;
++						if (ddata->mouse_mode) {
++							ddata->mouse_held =
++								ddata->keycode;
++							rmc_mouse_move(ddata,
++								       ddata->mouse_held);
++						} else {
++							ddata->sent_key =
++								rmc_dpad_code(ddata->keycode);
++							input_event(ddata->input,
++								    EV_KEY,
++								    ddata->sent_key,
++								    1);
++						}
++						break;
++					}
++				} else {
++					input_event(ddata->input, EV_KEY,
++						    ddata->keycode, 1);
++					ddata->sent_key = ddata->keycode;
++				}
+ 				input_sync(ddata->input);
+ 				ddata->state = RMC_SEQUENCE;
+ 			} else {
+@@ -253,27 +375,27 @@ static void rk_pwm_remotectl_do_something(unsigned long  data)
+ 	}
+ 	break;
+ 	case RMC_SEQUENCE:{
++		bool repeat;
++
+ 		DBG("S=%ld\n", ddata->period);
+-		if ((ddata->period > RK_PWM_TIME_RPT_MIN) &&
+-		    (ddata->period < RK_PWM_TIME_RPT_MAX)) {
+-			DBG("S1\n");
+-			mod_timer(&ddata->timer, jiffies
+-				  + msecs_to_jiffies(130));
+-		} else if ((ddata->period > RK_PWM_TIME_SEQ1_MIN) &&
+-			   (ddata->period < RK_PWM_TIME_SEQ1_MAX)) {
+-			DBG("S2\n");
+-			mod_timer(&ddata->timer, jiffies
+-				  + msecs_to_jiffies(130));
+-		} else if ((ddata->period > RK_PWM_TIME_SEQ2_MIN) &&
+-			   (ddata->period < RK_PWM_TIME_SEQ2_MAX)) {
+-			DBG("S3\n");
++		repeat = ((ddata->period > RK_PWM_TIME_RPT_MIN) &&
++			  (ddata->period < RK_PWM_TIME_RPT_MAX)) ||
++			 ((ddata->period > RK_PWM_TIME_SEQ1_MIN) &&
++			  (ddata->period < RK_PWM_TIME_SEQ1_MAX)) ||
++			 ((ddata->period > RK_PWM_TIME_SEQ2_MIN) &&
++			  (ddata->period < RK_PWM_TIME_SEQ2_MAX));
++
++		if (repeat) {
++			DBG("S1/2/3\n");
+ 			mod_timer(&ddata->timer, jiffies
+ 				  + msecs_to_jiffies(130));
++			if (ddata->mouse_mode && ddata->mouse_held) {
++				rmc_mouse_move(ddata, ddata->mouse_held);
++				input_sync(ddata->input);
++			}
+ 		} else {
+ 			DBG("S4\n");
+-			input_event(ddata->input, EV_KEY,
+-				    ddata->keycode, 0);
+-			input_sync(ddata->input);
++			rmc_key_release(ddata);
+ 			ddata->state = RMC_PRELOAD;
+ 			ddata->press = 0;
+ 		}
+@@ -291,8 +413,7 @@ static void rk_pwm_remotectl_timer(struct timer_list *t)
+ 	if (ddata->press != ddata->pre_press) {
+ 		ddata->pre_press = 0;
+ 		ddata->press = 0;
+-		input_event(ddata->input, EV_KEY, ddata->keycode, 0);
+-		input_sync(ddata->input);
++		rmc_key_release(ddata);
+ 	}
+ 	ddata->state = RMC_PRELOAD;
+ }
+@@ -692,9 +813,15 @@ static int rk_pwm_probe(struct platform_device *pdev)
+ 			int keycode;
+ 
+ 			keycode = remotectl_button[j].key_table[i].keycode;
++			/* reserved mouse codes are handled by the driver */
++			if (rmc_key_is_mouse(keycode))
++				continue;
+ 			input_set_capability(input, EV_KEY, keycode);
+ 		}
+ 	}
++	input_set_capability(input, EV_REL, REL_X);
++	input_set_capability(input, EV_REL, REL_Y);
++	input_set_capability(input, EV_KEY, BTN_MIDDLE);
+ 	ret = input_register_device(input);
+ 	if (ret)
+ 		dev_err(&pdev->dev, "register input device err, ret=%d\n", ret);
