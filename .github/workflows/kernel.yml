@@ -14,7 +14,7 @@ on:
         default: 'tinker_board_2_defconfig'
       extra_mk:
         description: 'extra make targets (default Image + dtbs)'
-        default: 'Image dtbs'
+        default: 'Image + tinker/kc2 dtb'
 
 jobs:
   build:
@@ -39,12 +39,19 @@ jobs:
           git apply --ignore-whitespace --verbose ../patches/remotectl_mouse_4.19.patch
           grep -n "RMC_KEY_MOUSE_TOGGLE" drivers/input/remotectl/rockchip_pwm_remotectl.c
 
+      - name: Prepare KC2 dts
+        run: |
+          cd kernel/arch/arm64/boot/dts/rockchip
+          cp rk3399-tinker-board-2.dts rk3399-kc2.dts
+          cat $GITHUB_WORKSPACE/dts/kc2_override.dts >> rk3399-kc2.dts
+          grep -a "0x10f0" rk3399-kc2.dts | head -1
+
       - name: Build
         run: |
           cd kernel
           export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           make CC=aarch64-linux-gnu-gcc-10 ${{ github.event.inputs.defconfig || 'tinker_board_2_defconfig' }}
-          make CC=aarch64-linux-gnu-gcc-10 -j$(nproc) ${{ github.event.inputs.extra_mk || 'Image rockchip/rk3399-tinker-board-2.dtb' }}
+          make CC=aarch64-linux-gnu-gcc-10 -j$(nproc) ${{ github.event.inputs.extra_mk || 'Image rockchip/rk3399-tinker-board-2.dtb arch/arm64/boot/dts/rockchip/rk3399-kc2.dtb' }}
 
       - name: Collect artifacts
         run: |

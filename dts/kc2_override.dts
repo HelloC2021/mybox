@@ -1,0 +1,46 @@
+
+/*
+ * KC2 / K10Plus overrides (appended to rk3399-tinker-board-2.dts copy)
+ * - display: HDMI only (stock dsi/edp/touch are disabled in stock fdt)
+ * - IR: ir_key1 = 原装遥控器A (12键) + 海格森3528 (12键) 合并表
+ *   (同 usercode 0xfe01, 驱动取第一个匹配表, 故必须合并)
+ *   海格森3528 键值来自驱动错位解码实测, 配合 remotectl_mouse_4.19.patch
+ *   使用预留键值 0x10c0/0x1011-0x1014/0x10f0 (方向/OK 在按键模式自动转 DPAD/REPLY)
+ */
+
+/ {
+	model = "KickPi KC2 / K10Plus (RK3399)";
+
+	pwm@ff420030 {
+		ir_key1 {
+			rockchip,key_table = <
+				/* ---- 原装遥控器A ---- */
+				0xf8 0xe8	/* 确认 REPLY */
+				0xda 0x9e	/* back */
+				0xfc 0x67	/* up */
+				0xf7 0x6c	/* down */
+				0xfa 0x69	/* left */
+				0xf9 0x6a	/* right */
+				0xd8 0x66	/* home */
+				0xd6 0x73	/* volume+ */
+				0xd7 0x72	/* volume- */
+				0xfe 0x74	/* power */
+				0xfd 0x8b	/* menu */
+				0xd9 0x184	/* mouse-mode switch (stock) */
+				/* ---- 海格森3528 ---- */
+				0xbf 0x74	/* power */
+				0xb3 0x8b	/* menu */
+				0xe6 0x9e	/* back */
+				0xee 0x66	/* home */
+				0xe7 0x73	/* volume+ */
+				0xef 0x72	/* volume- */
+				0xec 0x10c0	/* OK: key=REPLY / mouse=middle */
+				0xe9 0x1011	/* up:   key=DPAD_UP / mouse=cursor */
+				0xe5 0x1012	/* down */
+				0xae 0x1013	/* left */
+				0xaf 0x1014	/* right */
+				0xff 0x10f0	/* toggle mouse mode */
+			>;
+		};
+	};
+};
