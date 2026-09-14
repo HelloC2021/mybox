@@ -22,6 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pre-pull base image (CN mirror fallback)
+        run: |
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep -qx 'ubuntu:20.04' || {
+            docker pull docker.m.daocloud.io/library/ubuntu:20.04 &&
+            docker tag docker.m.daocloud.io/library/ubuntu:20.04 ubuntu:20.04; }
+
       - name: Build docker image (Ubuntu 20.04 + AOSP deps)
         run: docker build -t kc2-aosp11 - < Dockerfile
 
