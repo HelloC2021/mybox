@@ -20,11 +20,9 @@ cd $MYBOX && git pull --ff-only origin main
 
 echo "== [2/6] repo 同步 (首次完整, 之后增量) =="
 mkdir -p $ROOT && cd $ROOT
-if [ ! -d .repo/manifests ]; then
-    repo init -u https://github.com/TinkerBoard2-Android/manifest.git \
-        -b android11-rk3399 -m tinker_board_2-android11-2.0.1.xml --depth=1
-fi
-repo sync -c -j8 --fail-fast
+repo init -u https://github.com/TinkerBoard-Android/rockchip-android-manifest.git \
+    -b android11-rockchip -m tinker_board_2-android11-2.0.8.xml --depth=1
+repo sync -c -j8 --fail-fast --force-sync --prune
 
 echo "== [3/6] 定制层 + 补丁 =="
 rm -rf $ROOT/device/kc2

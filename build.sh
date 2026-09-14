@@ -58,9 +58,9 @@ fi
 echo "=== [3/6] repo 同步 (首次 30~90 分钟, 之后增量) ==="
 mkdir -p "$ROOT" && cd "$ROOT"
 # 无条件执行 repo init: 幂等, 且能自愈上次中断留下的残缺 .repo
-repo init -u https://github.com/TinkerBoard2-Android/manifest.git \
-    -b android11-rk3399 -m tinker_board_2-android11-2.0.8.xml --depth=1
-repo sync -c -j8 --fail-fast
+repo init -u https://github.com/TinkerBoard-Android/rockchip-android-manifest.git \
+    -b android11-rockchip -m tinker_board_2-android11-2.0.8.xml --depth=1
+repo sync -c -j8 --fail-fast --force-sync --prune
 
 echo "=== [4/6] 定制层 + 补丁 + KC2 dts ==="
 rm -rf "$ROOT/device/kc2"
