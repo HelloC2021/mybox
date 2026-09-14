@@ -4,7 +4,7 @@
 # 手动触发按钮定义在 .cnb/web_trigger.yml
 
 # 云原生开发环境 (10 核, 512G 持久工作区)
-$$:
+$:
   vscode:
     - runner:
         tags: cnb:arch:amd64
