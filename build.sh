@@ -23,16 +23,21 @@ $SUDO apt-get update
 $SUDO apt-get install -y git python3 python-is-python3 curl wget rsync unzip zip \
     bc bison flex libssl-dev libncurses5 libncurses5-dev ccache sudo
 
-# aarch64 交叉工具链: gcc-10-aarch64-linux-gnu 与 gcc-multilib 存在 Conflicts (Ubuntu 20.04),
-# 镜像内已预装 gcc-aarch64-linux-gnu, 故按"已存在优先, 缺失才装"的顺序探测, 避免冲突
+# aarch64 交叉工具链:
+#   - Ubuntu 20.04(focal) 只有 gcc-9-aarch64-linux-gnu, 并不存在 gcc-10-aarch64-linux-gnu
+#     (focal-backports 才有 gcc-10, 默认源里没有), 所以包名固定用 gcc-aarch64-linux-gnu。
+#   - gcc-9-aarch64-linux-gnu 声明 `Conflicts: gcc-multilib`, 且两者共享 libc6-dev-i386。
+#     若与 gcc-multilib 同一次 apt-get install, apt 会把交叉包解析为
+#     "not going to be installed", 直接 exit 100 —— 必须单条命令独立安装。
+#   - 镜像 .ide/Dockerfile 已预装该工具链 (单独一条 RUN), 这里只做"已存在则跳过"探测。
 CROSS_GCC=""
-for cand in aarch64-linux-gnu-gcc-10 aarch64-linux-gnu-gcc; do
+for cand in aarch64-linux-gnu-gcc-10 aarch64-linux-gnu-gcc-9 aarch64-linux-gnu-gcc; do
     command -v "$cand" >/dev/null 2>&1 && { CROSS_GCC="$(command -v "$cand")"; break; }
 done
 if [ -z "$CROSS_GCC" ]; then
-    $SUDO apt-get install -y gcc-10-aarch64-linux-gnu \
-        || $SUDO apt-get install -y gcc-aarch64-linux-gnu
-    for cand in aarch64-linux-gnu-gcc-10 aarch64-linux-gnu-gcc; do
+    # 独立的一次 apt 事务: 不要和 gcc-multilib 混在同一条 install 里
+    $SUDO apt-get install -y gcc-aarch64-linux-gnu
+    for cand in aarch64-linux-gnu-gcc-10 aarch64-linux-gnu-gcc-9 aarch64-linux-gnu-gcc; do
         command -v "$cand" >/dev/null 2>&1 && { CROSS_GCC="$(command -v "$cand")"; break; }
     done
 fi
