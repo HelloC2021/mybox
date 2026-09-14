@@ -1,0 +1,30 @@
+# CNB 云开发环境镜像 (openssh-server 供本地 VSCode Remote-SSH 连接 + 构建依赖预装)
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+# apt 走清华镜像
+RUN sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g; s|http://security.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+
+# openssh-server: CNB 本地 VSCode 远程连接必需
+# 其余为 AOSP/RK3399 构建依赖 (装一次, 工作区持久)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-server sudo \
+    git-core gnupg flex bison gperf build-essential zip curl wget \
+    zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 \
+    lib32ncurses-dev x11proto-core-dev libx11-dev lib32z1-dev \
+    libgl1-mesa-dev libxml2-utils xsltproc fontconfig \
+    python3 python-is-python3 python3-distutils \
+    libssl-dev libncurses5 libncurses5-dev bc rsync file ccache \
+    gcc-10-aarch64-linux-gnu \
+ && mkdir -p /var/run/sshd \
+ && rm -rf /var/lib/apt/lists/*
+
+# repo 工具 (清华源)
+RUN curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/bin/repo \
+ && chmod a+x /usr/local/bin/repo
+
+# CNB 会注入 SSH 公钥; 确保 sshd 可启动
+RUN sed -i 's/#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config || true
+
+ENV GIT_EDITOR="true" USE_CCACHE=1
+WORKDIR /workspace

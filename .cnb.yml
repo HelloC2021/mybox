@@ -10,7 +10,7 @@ $:
         tags: cnb:arch:amd64
         cpus: 10
       docker:
-        image: ubuntu:20.04
+        build: .ide/Dockerfile
       services:
         - vscode
 
