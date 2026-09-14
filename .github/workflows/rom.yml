@@ -61,7 +61,8 @@ jobs:
 
       - name: Build kernel
         run: |
-          docker run --rm -v "$ROM_ROOT":/build kc2-aosp11 bash -c '
+          mkdir -p /mnt/data/ccache
+          docker run --rm -v "$ROM_ROOT":/build -v /mnt/data/ccache:/build/.ccache kc2-aosp11 bash -c '
             cd /build/kernel &&
             export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- &&
             make CC=aarch64-linux-gnu-gcc-10 tinker_board_2_defconfig &&

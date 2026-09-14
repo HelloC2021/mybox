@@ -23,5 +23,9 @@ RUN curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o /usr/lo
 # 允许容器内 sudo (runner 用户映射)
 RUN echo "root ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
+# 编译加速代理 (局域网代理机, repo/git/apt 走它)
+RUN git config --global http.proxy http://192.168.199.67:10808  && git config --global https.proxy http://192.168.199.67:10808
+ENV HTTP_PROXY=http://192.168.199.67:10808 HTTPS_PROXY=http://192.168.199.67:10808
+ENV NO_PROXY=localhost,127.0.0.1
 ENV GIT_EDITOR="true" USE_CCACHE=1
 WORKDIR /build
