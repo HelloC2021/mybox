@@ -1,0 +1,13 @@
+# 手动触发按钮 (分支详情页 → 构建)
+# 事件对应的流水线定义在仓库根目录 .cnb.yml 的 "**" 段
+
+branch:
+  - buttons:
+      - name: 构建内核+kc2 dtb
+        description: 同步源码并编译 Image + rk3399-kc2.dtb (约 1~2 小时)
+        event: web_trigger_rom_kernel
+        isDefault: true
+      - name: 构建完整ROM
+        description: 同步源码并编译完整 Android 11 + Magisk boot 注入 (约 3~5 小时)
+        event: web_trigger_rom_full
+        groupName: 完整构建

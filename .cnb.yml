@@ -1,0 +1,49 @@
+# KC2/K10Plus Android 11 (RK3399) CNB 构建流水线
+# 语法参考: https://docs.cnb.cool/zh/build/configuration.html
+# 资源: amd64 节点最高 64 核 / 单任务最长 18 小时
+# 手动触发按钮定义在 .cnb/web_trigger.yml
+
+main:
+  push:
+    # 轻量校验: 每次推送自动执行 (秒级, 不触发重量级源码同步)
+    - name: lint
+      runner:
+        tags: cnb:arch:amd64
+        cpus: 4
+      docker:
+        image: docker.m.daocloud.io/library/ubuntu:20.04
+      stages:
+        - name: syntax-and-patch-check
+          script: |
+            bash -n build.sh && echo "build.sh 语法 OK"
+            test -f patches/remotectl_mouse_4.19.patch && echo "鼠标补丁 OK"
+            test -f dts/kc2_override.dts && echo "KC2 dts 覆盖 OK"
+            test -f device_overlay/kc2_rom.mk && echo "ROM 定制层 OK"
+
+# 任意分支可手动触发 (分支详情页按钮, 按钮定义在 .cnb/web_trigger.yml)
+"**":
+  web_trigger_rom_kernel:
+    - name: kc2-atv-kernel
+      runner:
+        tags: cnb:arch:amd64
+        cpus: 16
+      docker:
+        image: docker.m.daocloud.io/library/ubuntu:20.04
+      env:
+        STAGE: kernel
+      stages:
+        - name: sync-and-build-kernel
+          script: bash build.sh kernel
+
+  web_trigger_rom_full:
+    - name: kc2-atv-full-rom
+      runner:
+        tags: cnb:arch:amd64
+        cpus: 32
+      docker:
+        image: docker.m.daocloud.io/library/ubuntu:20.04
+      env:
+        STAGE: full
+      stages:
+        - name: sync-and-build-full-rom
+          script: bash build.sh full
