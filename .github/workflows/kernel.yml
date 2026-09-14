@@ -42,7 +42,7 @@ jobs:
       - name: Build
         run: |
           cd kernel
-          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc-10
           make ${{ github.event.inputs.defconfig || 'tinker_board_2_defconfig' }}
           make -j$(nproc) ${{ github.event.inputs.extra_mk || 'Image dtbs' }} KCFLAGS="-Wno-error"
 
