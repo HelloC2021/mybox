@@ -11,8 +11,10 @@
 
 ## 流水线
 
-- `kernel.yml` — push 自动触发 / 手动 dispatch（可指定 defconfig 与 make 目标）。
-  源码在 runner 上直接从 GitHub 克隆（github-to-github，快），产出 `Image(.gz)/dtb` 挂 Artifacts。
+- `kernel.yml` — 云端快速验证：push 自动触发（内核+dtb，含鼠标补丁与海格森3528码表）
+- `rom.yml` — 全量 ROM（需 self-hosted runner，见 docs/selfhosted-runner.md）
+- **本地构建（推荐）**：`build_rom.sh` — 无需 runner，任意 x86 Linux + Docker 即可，
+  见 [docs/local-build.md](docs/local-build.md)
 
 ## 目录
 
@@ -20,6 +22,9 @@
 .github/workflows/kernel.yml   # 内核构建流水线
 patches/remotectl_mouse_4.19.patch  # remotectl 鼠标模式补丁（预留 keycode 0x1000~0x10ff）
 dts/kc2_haigesen3528_ir.dtsi   # 海格森3528 12键码表（usercode 0xfe01）
+dts/kc2_override.dts           # KC2 整机覆盖块（HDMI 盒子 + 合并码表）
+build_rom.sh                   # 本地全量构建脚本（免 runner）
+docs/local-build.md            # 本地构建指南
 ```
 
 ## 海格森3528 键位
