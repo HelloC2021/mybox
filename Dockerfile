@@ -23,7 +23,7 @@ RUN curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o /usr/lo
 # 允许容器内 sudo (runner 用户映射)
 RUN echo "root ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# 代理仅用于 git/repo (github 流量), apt/docker 走国内镜像不经代理
-RUN git config --global http.proxy http://192.168.199.67:10808  && git config --global https.proxy http://192.168.199.67:10808
+# github 走 dockermirror 加速 (不经代理)
+RUN git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/"
 ENV GIT_EDITOR="true" USE_CCACHE=1
 WORKDIR /build

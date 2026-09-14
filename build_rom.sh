@@ -7,11 +7,8 @@ set -e
 STAGE=${1:-kernel}
 ROOT=/mnt/data/aosp
 MYBOX=/mnt/data/mybox
-PROXY=http://192.168.199.67:10808
-
-# 代理仅给 git/repo (github 流量)
-git config --global http.proxy $PROXY
-git config --global https.proxy $PROXY
+# github 全部走 dockermirror 加速 (不经代理)
+git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/"
 git config --global user.email builder@local
 git config --global user.name builder
 # repo 工具自身改从清华镜像克隆 (gerrit.googlesource.com 被墙)
