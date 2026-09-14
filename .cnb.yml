@@ -10,7 +10,7 @@ $:
         tags: cnb:arch:amd64
         cpus: 10
       docker:
-        image: docker.m.daocloud.io/library/ubuntu:20.04
+        image: ubuntu:20.04
       services:
         - vscode
 
@@ -22,7 +22,7 @@ main:
         tags: cnb:arch:amd64
         cpus: 4
       docker:
-        image: docker.m.daocloud.io/library/ubuntu:20.04
+        image: ubuntu:20.04
       stages:
         - name: syntax-and-patch-check
           script: |
@@ -39,7 +39,7 @@ main:
         tags: cnb:arch:amd64
         cpus: 16
       docker:
-        image: docker.m.daocloud.io/library/ubuntu:20.04
+        image: ubuntu:20.04
       env:
         STAGE: kernel
       stages:
@@ -52,7 +52,7 @@ main:
         tags: cnb:arch:amd64
         cpus: 32
       docker:
-        image: docker.m.daocloud.io/library/ubuntu:20.04
+        image: ubuntu:20.04
       env:
         STAGE: full
       stages:
