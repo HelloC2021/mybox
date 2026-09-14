@@ -44,7 +44,7 @@ jobs:
           cd kernel
           export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           make CC=aarch64-linux-gnu-gcc-10 ${{ github.event.inputs.defconfig || 'tinker_board_2_defconfig' }}
-          make CC=aarch64-linux-gnu-gcc-10 -j$(nproc) ${{ github.event.inputs.extra_mk || 'Image dtbs' }}
+          make CC=aarch64-linux-gnu-gcc-10 -j$(nproc) ${{ github.event.inputs.extra_mk || 'Image rockchip/rk3399-tinker-board-2.dtb' }}
 
       - name: Collect artifacts
         run: |
