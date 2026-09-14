@@ -19,7 +19,16 @@ $:
         tags: cnb:arch:amd64
         cpus: 10
       docker:
-        build: .ide/Dockerfile
+        # build.by 是构建上下文的白名单: 只有列在 by 中的文件才会被 COPY 进镜像
+        # (Dockerfile 本身除外)。若缺少 by, 构建上下文为空, 所有 COPY 都会
+        # 报 "failed to calculate checksum ... not found"。详见:
+        # https://docs.cnb.cool/zh/build/grammar.html#pipeline-build
+        build:
+          dockerfile: .ide/Dockerfile
+          by:
+            - .ide/Dockerfile
+            - .ide/settings.json
+            - .ide/first_run.sh
       services:
         - vscode
 
@@ -44,13 +53,20 @@ main:
             grep -q "@tencent-ai/codebuddy-code" .ide/Dockerfile && echo "codebuddy 补齐 OK"
             grep -q "FROM ubuntu:20.04" .ide/Dockerfile && echo "云开发镜像基线 ubuntu:20.04 OK"
             grep -q "openssh-server" .ide/Dockerfile && echo "Remote-SSH 支持 OK"
-            grep -q "^        build: .ide/Dockerfile" .cnb.yml && echo "开发镜像 build-only OK"
+            grep -qE "^\s*dockerfile: \.ide/Dockerfile" .cnb.yml && echo "开发镜像 build-only OK"
             ! grep -qE "^\s*image: cnbcool/default-dev-env" .cnb.yml && echo "无回退镜像 OK"
-            # Dockerfile 中 COPY 的源路径相对构建上下文根 (/workspace), 必须真实存在
+            # CNB 的 build.by 是构建上下文白名单: Dockerfile 里每个 COPY 的源路径
+            # 都必须在 by 中声明, 否则该文件不会进入构建上下文, docker build 会
+            # 报 "failed to calculate checksum ... not found"。这里做静态一致性校验。
             while read -r src; do
               test -e "$src" || { echo "ERROR: Dockerfile COPY 源不存在: $src"; exit 1; }
+              grep -qE "^\s*-\s*\$src\s*$" .cnb.yml || {
+                echo "ERROR: Dockerfile COPY 源未在 .cnb.yml 的 build.by 中声明: $src"
+                echo "       (by 之外的文件不会进入构建上下文, 镜像构建必失败)"
+                exit 1
+              }
             done < <(grep -oE '^COPY [^ ]+' .ide/Dockerfile | awk '{print $2}')
-            echo "Dockerfile COPY 源路径 OK"
+            echo "Dockerfile COPY 源路径已全部进入 build.by 白名单 OK"
 
 # 任意分支可手动触发 (分支详情页按钮, 按钮定义在 .cnb/web_trigger.yml)
 "**":
