@@ -4,25 +4,24 @@
 # 手动触发按钮定义在 .cnb/web_trigger.yml
 
 # 云原生开发环境 (10 核, 512G 持久工作区)
+#
+# 镜像策略: 只保留 build, 不设 image 回退。
+#   - Android 11 (AOSP) 官方仅支持 Ubuntu 18.04/20.04, 必须由 .ide/Dockerfile
+#     在 ubuntu:20.04 上构建 (repo/ccache/gcc-multilib/aarch64 交叉工具链/locale)。
+#   - 若声明同级 image: cnbcool/default-dev-env 作为回退, 构建失败时会静默退到该
+#     默认镜像, 其基线非 ubuntu:20.04, AOSP 编译依赖缺失 —— 环境看似可用但 build.sh
+#     会失败, 且掩盖真实报错。故此处坚持 build-only: 镜像构建失败即失败暴露。
+#   - .ide/Dockerfile 已装 openssh-server (本地 VSCode Remote-SSH) + code-server +
+#     cnbcool.cnb-welcome/coding-copilot/codebuddy (面板插件), 无需依赖默认镜像。
 $:
   vscode:
     - runner:
         tags: cnb:arch:amd64
         cpus: 10
       docker:
-        # 自定义镜像基于 ubuntu:20.04 构建; 构建失败时回退 CNB 默认镜像, 保证环境仍可进入
         build: .ide/Dockerfile
-        image: cnbcool/default-dev-env:latest
       services:
         - vscode
-      # 说明: CNB_ 前缀为平台保留变量, 不能在此声明 CNB_WELCOME_CMD;
-      # 如需进入环境时自动执行初始化, 可在「云原生开发设置」中单独配置该环境变量,
-      # 或手动执行: bash /usr/local/bin/cnb-first-run
-      stages:
-        - name: dev-env-ready
-          script: |
-            echo "云开发环境已就绪 (code-server + CNB 插件 + codebuddy)"
-            bash /usr/local/bin/cnb-first-run || true
 
 main:
   push:
@@ -43,7 +42,10 @@ main:
             bash -n .ide/first_run.sh && echo "first_run.sh 语法 OK"
             grep -q "code-server --install-extension cnbcool.cnb-welcome" .ide/Dockerfile && echo "CNB 插件补齐 OK"
             grep -q "@tencent-ai/codebuddy-code" .ide/Dockerfile && echo "codebuddy 补齐 OK"
-            grep -q "image: cnbcool/default-dev-env:latest" .cnb.yml && echo "回退镜像 OK"
+            grep -q "FROM ubuntu:20.04" .ide/Dockerfile && echo "云开发镜像基线 ubuntu:20.04 OK"
+            grep -q "openssh-server" .ide/Dockerfile && echo "Remote-SSH 支持 OK"
+            grep -q "^        build: .ide/Dockerfile" .cnb.yml && echo "开发镜像 build-only OK"
+            ! grep -qE "^\s*image: cnbcool/default-dev-env" .cnb.yml && echo "无回退镜像 OK"
 
 # 任意分支可手动触发 (分支详情页按钮, 按钮定义在 .cnb/web_trigger.yml)
 "**":
