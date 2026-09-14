@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dev libxml2-utils xsltproc fontconfig \
     python3 python-is-python3 python3-distutils \
     libssl-dev libncurses5 libncurses5-dev bc rsync file ccache \
-    gcc-10-aarch64-linux-gnu \
+    gcc-aarch64-linux-gnu \
  && sed -i 's|http://mirrors.tuna.tsinghua.edu.cn|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list \
  && mkdir -p /var/run/sshd \
  && rm -rf /var/lib/apt/lists/*

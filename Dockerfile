@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig \
     python3 python-is-python3 python3-distutils \
     libssl-dev libncurses5 libncurses5-dev bc rsync file \
-    gcc-10-aarch64-linux-gnu sudo ccache openssh-client \
+    gcc-aarch64-linux-gnu sudo ccache openssh-client \
  && rm -rf /var/lib/apt/lists/*
 
 # repo 工具 (github 源可达时用官方; 不通时用清华镜像二选一)
