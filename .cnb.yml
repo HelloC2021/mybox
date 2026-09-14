@@ -10,9 +10,19 @@ $:
         tags: cnb:arch:amd64
         cpus: 10
       docker:
+        # 自定义镜像基于 ubuntu:20.04 构建; 构建失败时回退 CNB 默认镜像, 保证环境仍可进入
         build: .ide/Dockerfile
+        image: cnbcool/default-dev-env:latest
       services:
         - vscode
+      # 说明: CNB_ 前缀为平台保留变量, 不能在此声明 CNB_WELCOME_CMD;
+      # 如需进入环境时自动执行初始化, 可在「云原生开发设置」中单独配置该环境变量,
+      # 或手动执行: bash /usr/local/bin/cnb-first-run
+      stages:
+        - name: dev-env-ready
+          script: |
+            echo "云开发环境已就绪 (code-server + CNB 插件 + codebuddy)"
+            bash /usr/local/bin/cnb-first-run || true
 
 main:
   push:
@@ -30,6 +40,10 @@ main:
             test -f patches/remotectl_mouse_4.19.patch && echo "鼠标补丁 OK"
             test -f dts/kc2_override.dts && echo "KC2 dts 覆盖 OK"
             test -f device_overlay/kc2_rom.mk && echo "ROM 定制层 OK"
+            bash -n .ide/first_run.sh && echo "first_run.sh 语法 OK"
+            grep -q "code-server --install-extension cnbcool.cnb-welcome" .ide/Dockerfile && echo "CNB 插件补齐 OK"
+            grep -q "@tencent-ai/codebuddy-code" .ide/Dockerfile && echo "codebuddy 补齐 OK"
+            grep -q "image: cnbcool/default-dev-env:latest" .cnb.yml && echo "回退镜像 OK"
 
 # 任意分支可手动触发 (分支详情页按钮, 按钮定义在 .cnb/web_trigger.yml)
 "**":
