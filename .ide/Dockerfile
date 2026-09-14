@@ -2,13 +2,15 @@
 FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 
-# apt 走清华镜像
-RUN sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g; s|http://security.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+# apt 走清华镜像: 首次 apt 前保持 http (基础镜像未预装 ca-certificates, https 握手会失败)
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g; s|http://security.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
 
 # openssh-server: CNB 本地 VSCode 远程连接必需
+# ca-certificates: 为后续切回 https 源 / repo 下载提供 TLS 证书库
+# unzip: build.sh full 阶段 Magisk boot 注入依赖
 # 其余为 AOSP/RK3399 构建依赖 (装一次, 工作区持久)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssh-server sudo \
+    openssh-server sudo ca-certificates unzip \
     git-core gnupg flex bison gperf build-essential zip curl wget \
     zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 \
     lib32ncurses-dev x11proto-core-dev libx11-dev lib32z1-dev \
@@ -16,11 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python-is-python3 python3-distutils \
     libssl-dev libncurses5 libncurses5-dev bc rsync file ccache \
     gcc-10-aarch64-linux-gnu \
+ && sed -i 's|http://mirrors.tuna.tsinghua.edu.cn|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list \
  && mkdir -p /var/run/sshd \
  && rm -rf /var/lib/apt/lists/*
 
-# repo 工具 (清华源)
+# repo 工具 (清华源, https 失败时走 http 兜底)
 RUN curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/bin/repo \
+ || curl -fsSL http://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/bin/repo \
  && chmod a+x /usr/local/bin/repo
 
 # CNB 会注入 SSH 公钥; 确保 sshd 可启动
