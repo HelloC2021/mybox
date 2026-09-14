@@ -21,12 +21,25 @@ if [ -f /etc/apt/sources.list ]; then
 fi
 $SUDO apt-get update
 $SUDO apt-get install -y git python3 python-is-python3 curl wget rsync unzip zip \
-    bc bison flex libssl-dev libncurses5 libncurses5-dev ccache \
-    gcc-10-aarch64-linux-gnu sudo \
- || { $SUDO apt-get install -y gcc-aarch64-linux-gnu; }
-CC=aarch64-linux-gnu-gcc-10
-$SUDO ln -sf "$(command -v aarch64-linux-gnu-gcc-10 || command -v aarch64-linux-gnu-gcc)" /usr/local/bin/aarch64-linux-gnu-gcc-cc
+    bc bison flex libssl-dev libncurses5 libncurses5-dev ccache sudo
+
+# aarch64 交叉工具链: gcc-10-aarch64-linux-gnu 与 gcc-multilib 存在 Conflicts (Ubuntu 20.04),
+# 镜像内已预装 gcc-aarch64-linux-gnu, 故按"已存在优先, 缺失才装"的顺序探测, 避免冲突
+CROSS_GCC=""
+for cand in aarch64-linux-gnu-gcc-10 aarch64-linux-gnu-gcc; do
+    command -v "$cand" >/dev/null 2>&1 && { CROSS_GCC="$(command -v "$cand")"; break; }
+done
+if [ -z "$CROSS_GCC" ]; then
+    $SUDO apt-get install -y gcc-10-aarch64-linux-gnu \
+        || $SUDO apt-get install -y gcc-aarch64-linux-gnu
+    for cand in aarch64-linux-gnu-gcc-10 aarch64-linux-gnu-gcc; do
+        command -v "$cand" >/dev/null 2>&1 && { CROSS_GCC="$(command -v "$cand")"; break; }
+    done
+fi
+[ -n "$CROSS_GCC" ] || { echo "ERROR: 未找到 aarch64 交叉编译器"; exit 1; }
+$SUDO ln -sf "$CROSS_GCC" /usr/local/bin/aarch64-linux-gnu-gcc-cc
 CC=aarch64-linux-gnu-gcc-cc
+echo "交叉编译器: $CROSS_GCC -> /usr/local/bin/aarch64-linux-gnu-gcc-cc"
 
 which repo >/dev/null 2>&1 || {
     curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/bin/repo
