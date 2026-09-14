@@ -1,0 +1,111 @@
+name: rom
+
+# 全量 ROM 构建 — 仅在 self-hosted runner (label: rom) 上运行
+# 机器要求: x86_64, 300GB+ 空闲盘, Docker 可用
+# 所有依赖装在 Docker(Ubuntu 20.04) 内, 宿主机只需 docker + git
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'kernel | full (kernel=先验证内核+boot, full=完整ROM)'
+        default: 'kernel'
+      keep_out:
+        description: '保留 out/ 目录 (true/false)'
+        default: 'false'
+
+jobs:
+  rom:
+    runs-on: [self-hosted, rom]
+    env:
+      ROM_ROOT: ${{ vars.ROM_ROOT || '/mnt/data/aosp' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build docker image (Ubuntu 20.04 + AOSP deps)
+        run: docker build -t kc2-aosp11 - < Dockerfile
+
+      - name: Repo sync (744 repos, 首次约1-3小时)
+        run: |
+          mkdir -p "$ROM_ROOT" && cd "$ROM_ROOT"
+          [ -d .repo ] || docker run --rm -v "$ROM_ROOT":/build kc2-aosp11 bash -c '
+            git config --global user.email builder@local &&
+            git config --global user.name builder &&
+            repo init -u https://github.com/TinkerBoard2-Android/manifest.git \
+              -b android11-rk3399 -m tinker_board_2-android11-2.0.1.xml --depth=1 &&
+            repo sync -c -j8'
+        timeout-minutes: 300
+
+      - name: Fetch prebuilt APKs (release assets)
+        run: |
+          mkdir -p device_overlay/apps
+          curl -fL --retry 3 -o device_overlay/apps/AirDroid_4.3.12.0_airdroidhp.apk             https://github.com/HelloC2021/mybox/releases/download/apps-v1/AirDroid_4.3.12.0_airdroidhp.apk
+          curl -fL --retry 3 -o device_overlay/apps/Magisk-v30.7.apk             https://github.com/HelloC2021/mybox/releases/download/apps-v1/Magisk-v30.7.apk
+
+      - name: Install device overlay + patches
+        run: |
+          docker run --rm -v "$ROM_ROOT":/build -v "$PWD":/src:ro kc2-aosp11 bash -c '
+            cp -r /src/device_overlay /build/device/kc2 &&
+            cd /build/kernel &&
+            git apply --ignore-whitespace /src/patches/remotectl_mouse_4.19.patch &&
+            cd arch/arm64/boot/dts/rockchip &&
+            cp rk3399-tinker-board-2.dts rk3399-kc2.dts &&
+            cat /src/dts/kc2_override.dts >> rk3399-kc2.dts &&
+            echo "overlay+patch installed"'
+
+      - name: Build kernel
+        run: |
+          docker run --rm -v "$ROM_ROOT":/build kc2-aosp11 bash -c '
+            cd /build/kernel &&
+            export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- &&
+            make CC=aarch64-linux-gnu-gcc-10 tinker_board_2_defconfig &&
+            make CC=aarch64-linux-gnu-gcc-10 -j$(nproc) Image \
+              rockchip/rk3399-tinker-board-2.dtb rockchip/rk3399-kc2.dtb'
+        timeout-minutes: 60
+
+      - name: Build ROM (full 阶段)
+        if: ${{ github.event.inputs.stage == 'full' }}
+        run: |
+          docker run --rm -v "$ROM_ROOT":/build kc2-aosp11 bash -c '
+            cd /build &&
+            source build/envsetup.sh &&
+            lunch tinker_board_2-userdebug &&
+            make -j$(nproc)'
+        timeout-minutes: 360
+
+      - name: Magisk boot patch (应用级 root)
+        if: ${{ github.event.inputs.stage == 'full' }}
+        run: |
+          docker run --rm -v "$ROM_ROOT":/build -v "$PWD":/src:ro kc2-aosp11 bash -c '
+            set -e
+            OUT=/build/out/target/product/tinker_board_2
+            BOOT=$OUT/boot.img
+            [ -f "$BOOT" ] || { echo "boot.img 不存在"; exit 1; }
+            mkdir -p /tmp/mg && cd /tmp/mg
+            unzip -o /src/device_overlay/apps/Magisk-v30.7.apk -d apk >/dev/null
+            export MAGISKBIN=/tmp/mg/apk/lib/arm64-v8a
+            cp apk/lib/x86_64/libmagiskboot.so magiskboot && chmod +x magiskboot
+            export KEEPVERITY=true KEEPFORCEENCRYPT=true
+            sh apk/assets/boot_patch.sh "$BOOT" || \
+              { ./magiskboot unpack "$BOOT" &&
+                ./magiskboot cpio ramdisk.cpio \
+                  "add 0750 init $MAGISKBIN/magiskinit" &&
+                ./magiskboot repack "$BOOT" "$BOOT.magisk"; }
+            ls -la "$OUT"/boot.img*'
+
+      - name: Collect images
+        if: always()
+        run: |
+          mkdir -p out_collect
+          docker run --rm -v "$ROM_ROOT":/build -v "$PWD/out_collect":/collect kc2-aosp11 bash -c '
+            OUT=/build/out/target/product/tinker_board_2
+            for f in boot.img super.img system.img vendor.img odm.img userdata.img; do
+              [ -f "$OUT/$f" ] && cp "$OUT/$f" /collect/
+            done
+            [ -f /build/kernel/arch/arm64/boot/Image ] && cp /build/kernel/arch/arm64/boot/Image /collect/
+            ls -la /collect/'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rom-images-${{ github.run_number }}
+          path: out_collect/
