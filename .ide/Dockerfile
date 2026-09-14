@@ -80,9 +80,9 @@ RUN curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/b
  && chmod a+x /usr/local/bin/repo
 
 # --- CNB 开发环境机器级配置 (code-server / VSCode Remote-SSH 共用) ---
-COPY settings.json /root/.vscode-server/data/Machine/settings.json
-COPY settings.json /root/.local/share/code-server/Machine/settings.json
-COPY first_run.sh /usr/local/bin/cnb-first-run
+COPY .ide/settings.json /root/.vscode-server/data/Machine/settings.json
+COPY .ide/settings.json /root/.local/share/code-server/Machine/settings.json
+COPY .ide/first_run.sh /usr/local/bin/cnb-first-run
 RUN chmod +x /usr/local/bin/cnb-first-run
 
 # CNB 会注入 SSH 公钥; 确保 sshd 可启动
