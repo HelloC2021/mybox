@@ -21,16 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc-aarch64-linux-gnu \
  && rm -rf /var/lib/apt/lists/*
 
-# repo 工具 (github 源可达时用官方; 不通时用清华镜像二选一)
-RUN curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o /usr/local/bin/repo \
- && chmod a+x /usr/local/bin/repo \
- || (curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/bin/repo \
- && chmod a+x /usr/local/bin/repo)
+# repo launcher: 官方下载站 (storage.googleapis.com) 与国内镜像均不可靠, 统一取 GitHub 官方源
+RUN curl -fsSL https://raw.githubusercontent.com/GerritCodeReview/git-repo/main/repo \
+     -o /usr/local/bin/repo \
+ && chmod a+x /usr/local/bin/repo
 
 # 允许容器内 sudo (runner 用户映射)
 RUN echo "root ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# github 走 dockermirror 加速 (不经代理)
-RUN git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/"
 ENV GIT_EDITOR="true" USE_CCACHE=1
 WORKDIR /build

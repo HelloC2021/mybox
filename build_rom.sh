@@ -11,8 +11,8 @@ MYBOX=/mnt/data/mybox
 git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
 git config --global user.email builder@local
 git config --global user.name builder
-# repo 工具自身改从清华镜像克隆 (gerrit.googlesource.com 被墙)
-export REPO_URL=https://mirrors.tuna.tsinghua.edu.cn/git/git-repo
+# repo 工具源码走 GitHub 官方源 (gerrit.googlesource.com 被墙; 国内镜像 git 服务有排队限流)
+export REPO_URL="${REPO_URL:-https://github.com/GerritCodeReview/git-repo}"
 
 echo "== [1/6] mybox 同步 =="
 git config --global user.email builder@local

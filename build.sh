@@ -6,12 +6,13 @@
 #
 # 增量/幂等设计 (适合手动反复触发):
 #   - apt 依赖: .build/apt_done 标记 + 关键工具存在性探测, 已装则秒过
-#   - repo sync: 首次全量, 之后增量 (不带 --force-sync, 本地修改的项目自动跳过)
+#   - repo sync: 首次全量, 之后增量 (不带 --force-sync, 本地修改的项目自动跳过),
+#     每 20s 打印一次"已下载项目数/工作区占用/用时"心跳 (repo 原生进度条仅 TTY 可见)
 #   - 鼠标补丁: 反向检测已应用则跳过;  kc2.dts: 每次重新生成 (幂等)
 #   - 内核: make 增量编译 + ccache (CCACHE_DIR 固定到工作区, 跨次构建复用)
 #   - AOSP full: lunch+make 天然增量
 #   - 发布: 构建成功后自动发布 Release (无令牌时跳过)
-# 依赖网络: apt/repo=清华直连, github 直连 (无代理加速)
+# 依赖网络: github.com 官方源直连 (repo 工具/manifest/源码均走此处), apt 走清华镜像
 # =============================================================================
 set -euo pipefail
 
@@ -77,12 +78,14 @@ if command -v ccache >/dev/null 2>&1; then
     mkdir -p "$CCACHE_DIR"
 fi
 
+# repo launcher + repo 工具源码: 统一走 GitHub 官方源
+# (gerrit.googlesource.com 被墙; 国内镜像的 git 服务有并发排队, 曾出现 Position 180 长时间空等)
 which repo >/dev/null 2>&1 || {
-    curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/git/git-repo -o /usr/local/bin/repo
+    curl -fsSL https://raw.githubusercontent.com/GerritCodeReview/git-repo/main/repo \
+        -o /usr/local/bin/repo
     $SUDO chmod a+x /usr/local/bin/repo
 }
-# repo 工具自身从清华镜像克隆 (gerrit.googlesource.com 被墙)
-export REPO_URL=https://mirrors.tuna.tsinghua.edu.cn/git/git-repo
+export REPO_URL="${REPO_URL:-https://github.com/GerritCodeReview/git-repo}"
 
 echo "=== [1/7] git 配置 (github 直连) ==="
 # 清理历史遗留的 dockermirror insteadOf 重写, 确保全部直连
@@ -106,18 +109,78 @@ if [ "$STAGE" = "full" ]; then
     done
 fi
 
+# ---------------------------------------------------------------------------
+# repo sync 进度心跳
+#   repo 自带进度条只在 TTY 下输出 (progress.py: `if not _TTY or ...: return`),
+#   重定向到文件/流水线时 repo sync 全程"零输出", 所以这里自己按周期报进度。
+#   注意"已下载项目数"必须用 pack 计数: repo 会在 setup 阶段就为全部项目建好
+#   空仓库 (project-objects 目录数从一开始就是满的, 不能当进度)。
+#   REPO_SYNC_PTY=1 可改用 pty 包裹, 在终端显示 repo 原生进度条。
+# ---------------------------------------------------------------------------
+REPO_PROGRESS_INTERVAL="${REPO_PROGRESS_INTERVAL:-20}"   # 心跳间隔 (秒)
+REPO_PROGRESS_PID=""
+
+repo_progress_start() {
+    REPO_TOTAL=$(find "$ROOT/.repo/project-objects" -name '*.git' -type d 2>/dev/null | wc -l)
+    REPO_T0=$(date +%s)
+    echo "[repo sync] 共 ${REPO_TOTAL} 个项目, 每 ${REPO_PROGRESS_INTERVAL}s 报告进度"
+    (
+        while sleep "$REPO_PROGRESS_INTERVAL"; do
+            got=$(find "$ROOT/.repo/project-objects" -name '*.pack' 2>/dev/null | wc -l)
+            used=$(df -h "$ROOT" 2>/dev/null | awk 'NR==2{print $3}')
+            if [ "${REPO_TOTAL:-0}" -gt 0 ]; then
+                pct=$(( got * 100 / REPO_TOTAL ))
+                [ "$pct" -gt 100 ] && pct=100
+                prog=" ${pct}%"
+            else
+                prog=""
+            fi
+            printf '[repo sync] 已下载 %s/%s 个项目%s | 工作区占用 %s | 已用 %d 分钟\n' \
+                "$got" "$REPO_TOTAL" "$prog" "${used:-?}" \
+                "$(( ($(date +%s) - REPO_T0) / 60 ))"
+        done
+    ) &
+    REPO_PROGRESS_PID=$!
+}
+
+repo_progress_stop() {
+    [ -n "$REPO_PROGRESS_PID" ] || return 0
+    pkill -P "$REPO_PROGRESS_PID" 2>/dev/null || true   # 先收掉 sleep, 防止残留子进程
+    kill "$REPO_PROGRESS_PID" 2>/dev/null || true
+    wait "$REPO_PROGRESS_PID" 2>/dev/null || true
+    REPO_PROGRESS_PID=""
+}
+
+# 带进度地执行 repo sync: 默认心跳模式; REPO_SYNC_PTY=1 时用 pty 让 repo 自己刷进度条
+repo_sync_run() {
+    if [ "${REPO_SYNC_PTY:-0}" = "1" ] && command -v script >/dev/null 2>&1; then
+        echo "[repo sync] pty 模式: 显示 repo 原生进度条 (含 \\r 刷新, 重定向到日志会较乱)"
+        script -qec "repo sync $*" /dev/null
+        return $?
+    fi
+    repo_progress_start
+    repo sync "$@" || { local rc=$?; repo_progress_stop; return "$rc"; }
+    repo_progress_stop
+}
+
 echo "=== [3/7] repo 同步 (首次 30~90 分钟, 之后增量) ==="
 mkdir -p "$ROOT" && cd "$ROOT"
 if [ "${REPO_SYNC:-1}" = "1" ]; then
+    # repo 工具下载中断会残留半成品 (可能带旧源 remote), 清掉让 launcher 按当前 REPO_URL 重下
+    if [ ! -d "$ROOT/.repo/repo" ] && [ -d "$ROOT/.repo/repo.tmp" ]; then
+        echo "清理残留的 repo.tmp (上次工具下载未完成)"
+        rm -rf "$ROOT/.repo/repo.tmp"
+    fi
     if [ ! -d "$ROOT/.repo/manifests" ]; then
         # 首次: 完整初始化 + 全量同步 (并发 DOWNLOAD_JOBS, 直连 github 可调低避免 429/断流)
         repo init -u https://github.com/TinkerBoard-Android/rockchip-android-manifest.git \
             -b android11-rockchip -m tinker_board_2-android11-2.0.8.xml --depth=1
-        repo sync -c -j"$DOWNLOAD_JOBS" --fail-fast --prune
+        repo_sync_run -c -j"$DOWNLOAD_JOBS" --fail-fast --prune
     else
         # 增量: 不带 --force-sync —— kernel 等本地有修改的项目自动跳过
         # (避免每次同步抹掉已打的补丁再重打), 其余项目正常更新
-        repo sync -c -j"$DOWNLOAD_JOBS" --prune || echo "WARN: 部分项目未同步 (本地有修改已跳过, 属预期)"
+        repo_sync_run -c -j"$DOWNLOAD_JOBS" --prune \
+            || echo "WARN: 部分项目未同步 (本地有修改已跳过, 属预期)"
     fi
 else
     echo "REPO_SYNC=0, 跳过源码同步"

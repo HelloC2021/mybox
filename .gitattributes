@@ -1,5 +1,6 @@
-# 大二进制一律走 Git LFS, 保护仓库 git 对象空间 (配额 100G)
-# 产物大体积主通道为 Release 附件 (不占仓库配额), 见 release_upload.sh
+# 大二进制一律走 Git LFS, 保护仓库 git 对象空间 (CNB 仓库存储额度 100GiB/月)
+# 注意: LFS 对象与 Release 附件同属 CNB 对象存储额度 (也是 100GiB/月),
+# 且 LFS 对象在分支 force-push 覆盖后不会自动回收 —— 产物主通道走 Release, 并控制保留份数。
 # 注: reference/kc2_fdt.dtb 仅 88K 且已入库, 不在此列
 *.img filter=lfs diff=lfs merge=lfs -text
 *.img.xz filter=lfs diff=lfs merge=lfs -text

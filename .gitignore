@@ -9,6 +9,9 @@ joblog*.txt
 release_assets/
 artifacts_repo/
 
+# 云开发环境回收站残留 (与构建无关)
+.Trash-0/
+
 # build.sh 同步下来的源码/克隆仓库与中间产物 (体积巨大, 绝不入库)
 aosp/
 mybox/

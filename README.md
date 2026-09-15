@@ -41,7 +41,7 @@ bash upload_output2cnb_repo_release.sh kernel   # 或 full；等价于 release_u
 ## 目录
 
 ```
-build.sh                        # 一键构建脚本 (CNB/本地通用, 全国内直连)
+build.sh                        # 一键构建脚本 (CNB/本地通用, github 官方源直连)
 .cnb.yml                        # CNB 流水线 (push 校验 / 手动构建按钮)
 .cnb/web_trigger.yml            # 分支页构建按钮定义
 patches/remotectl_mouse_4.19.patch  # remotectl 鼠标模式补丁 (预留 keycode 0x1000~0x10ff)

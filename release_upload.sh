@@ -12,7 +12,10 @@
 #      (产物 RELEASES_KEEP=5; 源码环境 RELEASES_KEEP_SRC=1)
 #   4. 产物经 Git LFS 单提交覆盖推送到 artifacts 分支 (仓库配额内的小备份)
 #
-# Release 附件不受仓库配额限制, 大体积内容全部走 Release。
+# 注意: CNB 两类存储额度分开计费 (各 100GiB/月, 超出 1 元/GiB/月)
+#   仓库存储 = Git 对象          -> 本仓库仅数百 KB, 无压力
+#   对象存储 = 制品/LFS/附件      -> Release 附件与 artifacts 分支的 LFS 对象都算这里
+# 所以大体积内容仍应走 Release (不占 Git 对象), 但必须严格控制保留份数。
 #
 # 用法: bash release_upload.sh [kernel|full]
 # 依赖: CNB_TOKEN / CNB_REPO_SLUG / CNB_API_ENDPOINT (流水线内置), python3, git-lfs, zstd
