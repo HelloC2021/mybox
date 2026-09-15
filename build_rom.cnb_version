@@ -7,9 +7,8 @@ set -e
 STAGE=${1:-kernel}
 ROOT=/mnt/data/aosp
 MYBOX=/mnt/data/mybox
-# github 全部走 dockermirror 加速 (不经代理); AOSP googlesource 走清华
-git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/"
-git config --global url."https://aosp.tuna.tsinghua.edu.cn/".insteadOf "https://android.googlesource.com/"
+# github 直连 (无代理加速); 清理历史遗留的 dockermirror 重写
+git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
 git config --global user.email builder@local
 git config --global user.name builder
 # repo 工具源码走 GitHub 官方源 (gerrit.googlesource.com 被墙; 国内镜像 git 服务有排队限流)
@@ -25,23 +24,7 @@ echo "== [2/6] repo 同步 (首次完整, 之后增量) =="
 mkdir -p $ROOT && cd $ROOT
 repo init -u https://github.com/TinkerBoard-Android/rockchip-android-manifest.git \
     -b android11-rockchip -m tinker_board_2-android11-2.0.8.xml --depth=1
-# 网络不稳定: 交替使用 dockermirror / github 直连, 断点续传直至完成
-sync_ok=0
-for attempt in 1 2 3 4 5 6 7 8; do
-    if [ $((attempt % 2)) = 1 ]; then
-        git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/" || true
-        echo "--- sync attempt $attempt (dockermirror) ---"
-    else
-        git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
-        echo "--- sync attempt $attempt (direct github) ---"
-    fi
-    if repo sync -c -j8 --force-sync --prune; then
-        sync_ok=1
-        break
-    fi
-    sleep 20
-done
-[ "$sync_ok" = 1 ] || { echo "sync 最终失败"; exit 1; }
+repo sync -c -j8 --fail-fast --force-sync --prune
 
 echo "== [3/6] 定制层 + 补丁 =="
 rm -rf $ROOT/device/kc2
