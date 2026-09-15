@@ -2,3 +2,16 @@ cnb_docs.html
 redmine.html
 joblog*.txt
 *.zip
+
+# 构建脚本增量标记 / 令牌 / 临时产物目录
+.build/
+.secrets/
+release_assets/
+artifacts_repo/
+
+# build.sh 同步下来的源码/克隆仓库与中间产物 (体积巨大, 绝不入库)
+aosp/
+mybox/
+magisk/
+ccache/
+out/

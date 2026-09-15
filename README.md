@@ -15,9 +15,26 @@
 
 | 方式 | 用途 | 入口 |
 |---|---|---|
-| **CNB 云原生构建（推荐）** | 全流程，512G 工作区 | `.cnb.yml` + `bash build.sh kernel\|full`，按钮见分支页 |
+| **CNB 云原生开发环境（推荐）** | 全流程 + 自动发布 Release | 进入云开发后手动 `bash build.sh kernel\|full` |
 | GitHub Actions | 内核+dtb 快速验证 | `.github/workflows/kernel.yml`，push 自动 |
 | 任意 x86 Linux 本地 | 同 CNB，见指南 | `bash build_rom.sh`（Docker 版）|
+
+> 注：AOSP 源码树需要 512G 级持久磁盘，流水线 runner 磁盘不够，构建统一在云原生开发环境内手动触发。
+> `build.sh` 为增量/幂等设计，可反复执行：apt 依赖、repo sync、补丁、内核编译均自动跳过已完成步骤。
+
+## 产物发布（Release 页面）
+
+`build.sh` 构建完成后**不自动上传**，仅在结尾输出发布提示；需要发布时手动执行：
+
+```bash
+bash upload_output2cnb_repo_release.sh kernel   # 或 full；等价于 release_upload.sh
+```
+
+- **kernel 阶段** → `kc2-atv11-kernel-日期-短SHA`：`Image` + `rk3399-kc2.dtb` + `rk3399-tinker-board-2.dtb`
+- **full 阶段** → `kc2-atv11-full-日期-短SHA`：分区镜像（>256MB 自动 sparse+xz 压缩）+ Magisk patched boot
+- **源码环境备份**（full 成功后）→ `kc2-atv11-src-日期-短SHA`：整个 AOSP 源码树（含 `.repo`，排除 `out/`）4GiB 分卷 + `RESTORE.sh` 一键还原，后续构建可跳过 repo sync
+- **artifacts 分支**：本轮压缩产物经 Git LFS 单提交覆盖推送（仓库配额 100G 内的小备份，大体积主通道走 Release 附件）
+- **保留策略**：产物 Release 保留最近 5 个（`RELEASES_KEEP`），源码环境保留最近 1 个（`RELEASES_KEEP_SRC`），旧版本自动删除释放空间
 
 详细指南: [docs/local-build.md](docs/local-build.md)（本地）、[docs/kc2-dts-port.md](docs/kc2-dts-port.md)（dts 移植）
 
@@ -62,6 +79,7 @@ docs/                           # dts 移植 / 本地构建 / runner 指南
 - [x] 4.19 移植素材与指南（reference/tinker-4.19 + docs/kc2-dts-port.md）
 - [x] 海格森3528 码表 + 鼠标补丁 + ROM 定制层入库
 - [x] CNB 云构建流水线（512G 工作区，无需代理）
+- [x] 构建产物自动发布 Release（大镜像压缩 + 源码环境分卷备份 + LFS artifacts 分支）
 - [ ] **rk3399-kc2.dts 移植本体**（按 docs/kc2-dts-port.md 执行）
 - [ ] CNB 首跑验证（kernel 阶段 → full 阶段）
 - [ ] 刷机实测海格森3528（按键 + 鼠标模式 + Magisk root + 网络 ADB）

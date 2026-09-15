@@ -7,14 +7,16 @@ set -e
 STAGE=${1:-kernel}
 ROOT=/mnt/data/aosp
 MYBOX=/mnt/data/mybox
-# github 全部走 dockermirror 加速 (不经代理)
-git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/"
+# github 直连 (无代理加速); 清理历史遗留的 dockermirror 重写
+git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
 git config --global user.email builder@local
 git config --global user.name builder
 # repo 工具自身改从清华镜像克隆 (gerrit.googlesource.com 被墙)
 export REPO_URL=https://mirrors.tuna.tsinghua.edu.cn/git/git-repo
 
 echo "== [1/6] mybox 同步 =="
+git config --global user.email builder@local
+git config --global user.name builder
 [ -d $MYBOX/.git ] || git clone https://github.com/HelloC2021/mybox.git $MYBOX
 cd $MYBOX && git pull --ff-only origin main
 

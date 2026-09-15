@@ -1,0 +1,8 @@
+# 大二进制一律走 Git LFS, 保护仓库 git 对象空间 (配额 100G)
+# 产物大体积主通道为 Release 附件 (不占仓库配额), 见 release_upload.sh
+# 注: reference/kc2_fdt.dtb 仅 88K 且已入库, 不在此列
+*.img filter=lfs diff=lfs merge=lfs -text
+*.img.xz filter=lfs diff=lfs merge=lfs -text
+*.apk filter=lfs diff=lfs merge=lfs -text
+Image filter=lfs diff=lfs merge=lfs -text
+Image.gz filter=lfs diff=lfs merge=lfs -text

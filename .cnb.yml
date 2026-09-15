@@ -48,6 +48,12 @@ main:
             test -f patches/remotectl_mouse_4.19.patch && echo "鼠标补丁 OK"
             test -f dts/kc2_override.dts && echo "KC2 dts 覆盖 OK"
             test -f device_overlay/kc2_rom.mk && echo "ROM 定制层 OK"
+            bash -n release_upload.sh && echo "release_upload.sh 语法 OK"
+            bash -n build_rom.sh && echo "build_rom.sh 语法 OK"
+            grep -q "upload_output2cnb_repo_release.sh" build.sh && echo "构建脚本含发布提示 OK"
+            grep -q "git-lfs" build.sh && echo "git-lfs 依赖 OK"
+            grep -q "RESTORE.sh" release_upload.sh && echo "源码环境还原脚本 OK"
+            test -f .gitattributes && echo "LFS 属性文件 OK"
             bash -n .ide/first_run.sh && echo "first_run.sh 语法 OK"
             grep -q "code-server --install-extension cnbcool.cnb-welcome" .ide/Dockerfile && echo "CNB 插件补齐 OK"
             grep -q "@tencent-ai/codebuddy-code" .ide/Dockerfile && echo "codebuddy 补齐 OK"
@@ -68,30 +74,8 @@ main:
             done < <(grep -oE '^COPY [^ ]+' .ide/Dockerfile | awk '{print $2}')
             echo "Dockerfile COPY 源路径已全部进入 build.by 白名单 OK"
 
-# 任意分支可手动触发 (分支详情页按钮, 按钮定义在 .cnb/web_trigger.yml)
-"**":
-  web_trigger_rom_kernel:
-    - name: kc2-atv-kernel
-      runner:
-        tags: cnb:arch:amd64
-        cpus: 16
-      docker:
-        image: ubuntu:20.04
-      env:
-        STAGE: kernel
-      stages:
-        - name: sync-and-build-kernel
-          script: bash build.sh kernel
-
-  web_trigger_rom_full:
-    - name: kc2-atv-full-rom
-      runner:
-        tags: cnb:arch:amd64
-        cpus: 32
-      docker:
-        image: ubuntu:20.04
-      env:
-        STAGE: full
-      stages:
-        - name: sync-and-build-full-rom
-          script: bash build.sh full
+# NOTE: kernel / full 重型构建不再走流水线 runner (磁盘不足以容纳 AOSP 源码树)。
+# 统一在云原生开发环境 (512G 持久工作区) 内手动执行:
+#   bash build.sh kernel   # 或 bash build.sh full
+# build.sh 不自动上传; 发布由用户手动执行 upload_output2cnb_repo_release.sh。
+# 流水线只保留 push 时的 lint 校验与上面的 vscode 开发环境。
