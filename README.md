@@ -33,6 +33,7 @@ bash upload_output2cnb_repo_release.sh kernel   # 或 full；等价于 release_u
 - **kernel 阶段** → `kc2-atv11-kernel-日期-短SHA`：`Image` + `rk3399-kc2.dtb` + `rk3399-tinker-board-2.dtb`
 - **full 阶段** → `kc2-atv11-full-日期-短SHA`：分区镜像（>256MB 自动 sparse+xz 压缩）+ Magisk patched boot
 - **源码环境备份**（full 成功后）→ `kc2-atv11-src-日期-短SHA`：整个 AOSP 源码树（含 `.repo`，排除 `out/`）4GiB 分卷 + `RESTORE.sh` 一键还原，后续构建可跳过 repo sync
+- **WebDAV 源码备份**（不占 CNB 额度，推荐）→ `bash upload_src_to_webdav.sh`：`aosp/` 打成 1GiB 分卷 + `RESTORE.sh` + `sha256` 上传到 123pan WebDAV；远端同大小分卷自动跳过（可断点续传），实测上传约 4 MB/s。凭证放 `.secrets/webdav`（已 gitignore）
 - **artifacts 分支**：本轮压缩产物经 Git LFS 单提交覆盖推送（仓库配额 100G 内的小备份，大体积主通道走 Release 附件）
 - **保留策略**：产物 Release 保留最近 5 个（`RELEASES_KEEP`），源码环境保留最近 1 个（`RELEASES_KEEP_SRC`），旧版本自动删除释放空间
 
@@ -44,6 +45,7 @@ bash upload_output2cnb_repo_release.sh kernel   # 或 full；等价于 release_u
 build.sh                        # 一键构建脚本 (CNB/本地通用, github 官方源直连)
 .cnb.yml                        # CNB 流水线 (push 校验 / 手动构建按钮)
 .cnb/web_trigger.yml            # 分支页构建按钮定义
+upload_src_to_webdav.sh         # 源码环境分卷备份到 WebDAV (绕开 CNB 对象存储额度)
 patches/remotectl_mouse_4.19.patch  # remotectl 鼠标模式补丁 (预留 keycode 0x1000~0x10ff)
 dts/kc2_override.dts            # KC2 整机覆盖块 (HDMI 盒子 + 24 项合并码表)
 dts/kc2_haigesen3528_ir.dtsi    # 海格森3528 码表片段

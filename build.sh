@@ -241,6 +241,9 @@ echo
 echo "======================================================================="
 echo " 构建完成, 可手动发布产物到 CNB Release 页面:"
 echo "   bash $SCRIPT_DIR/upload_output2cnb_repo_release.sh $STAGE"
+echo " 源码环境备份到 WebDAV (不占 CNB 对象存储额度, 凭证: \$WS/.secrets/webdav):"
+echo "   bash $SCRIPT_DIR/upload_src_to_webdav.sh            # 全树分卷上传 (约 1GiB/卷)"
+echo "   PACK_WHAT=repo bash $SCRIPT_DIR/upload_src_to_webdav.sh   # 只备份 .repo"
 echo " 产物位置:"
 if [ "$STAGE" = "full" ]; then
     echo "   - 分区镜像/Magisk boot: $ROOT/out/target/product/tinker_board_2"

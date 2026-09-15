@@ -50,6 +50,7 @@ main:
             test -f device_overlay/kc2_rom.mk && echo "ROM 定制层 OK"
             bash -n release_upload.sh && echo "release_upload.sh 语法 OK"
             bash -n build_rom.sh && echo "build_rom.sh 语法 OK"
+            bash -n upload_src_to_webdav.sh && echo "upload_src_to_webdav.sh 语法 OK"
             grep -q "upload_output2cnb_repo_release.sh" build.sh && echo "构建脚本含发布提示 OK"
             grep -q "git-lfs" build.sh && echo "git-lfs 依赖 OK"
             grep -q "RESTORE.sh" release_upload.sh && echo "源码环境还原脚本 OK"

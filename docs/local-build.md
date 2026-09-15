@@ -31,6 +31,7 @@ cd mybox
 
 - **断点续传**：`repo sync` 中断后重跑脚本自动从断点继续（.repo 持久保留）
 - **进度可见**：`repo sync` 每 20s 打印一次「已下载 N/总项目数 + 工作区占用 + 已用时长」心跳（repo 原生进度条只在 TTY 下输出，日志里是静默的）；`REPO_SYNC_PTY=1` 可用 pty 包裹显示原生进度条，`REPO_PROGRESS_INTERVAL` 调整心跳间隔
+- **WebDAV 源码备份**：`bash upload_src_to_webdav.sh` 把 `aosp/` 按 1GiB 分卷（zstd）+ `RESTORE.sh` + `sha256` 上传到 WebDAV，凭证放 `.secrets/webdav`；远端已有同大小分卷则跳过，可断点续传；`PACK_WHAT=repo` 只备份 `.repo`（还原时 `repo sync -l` 离线出工作树）。下载回本地时 `curl` 必须带 `-L`（123pan 会 302 跳 CDN）
 - **增量构建**：源码树持久化，后续定制只需增量 sync（分钟级）+ 增量编译
 - **ccache**：挂载持久化，重复编译内核显著提速
 - **源策略**：repo 工具与全部源码统一走 github.com 官方源（不走国内镜像，避免 git 服务排队限流）；仅 apt 走国内镜像，Docker 基础镜像走官方源
