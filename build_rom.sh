@@ -27,14 +27,18 @@ repo init -u https://github.com/TinkerBoard-Android/rockchip-android-manifest.gi
     -b android11-rockchip -m tinker_board_2-android11-2.0.8.xml --depth=1
 # 网络不稳定: 交替使用 dockermirror / github 直连, 断点续传直至完成
 sync_ok=0
-for attempt in 1 2 3 4 5 6 7 8; do
-    if [ $((attempt % 2)) = 1 ]; then
-        git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/" || true
-        echo "--- sync attempt $attempt (dockermirror) ---"
-    else
-        git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
-        echo "--- sync attempt $attempt (direct github) ---"
-    fi
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    case $((attempt % 3)) in
+      1) git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/" || true
+         git config --global --unset http.proxy 2>/dev/null || true
+         echo "--- sync attempt $attempt (dockermirror) ---" ;;
+      2) git config --global --unset-all url.*.insteadof 2>/dev/null || true
+         git config --global http.proxy http://192.168.199.67:10808
+         echo "--- sync attempt $attempt (proxy 10808) ---" ;;
+      0) git config --global --unset-all url.*.insteadof 2>/dev/null || true
+         git config --global --unset http.proxy 2>/dev/null || true
+         echo "--- sync attempt $attempt (direct github) ---" ;;
+    esac
     if repo sync -c -j8 --force-sync --prune; then
         sync_ok=1
         break
