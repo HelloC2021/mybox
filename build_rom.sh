@@ -39,6 +39,8 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
          git config --global --unset http.proxy 2>/dev/null || true
          echo "--- sync attempt $attempt (direct github) ---" ;;
     esac
+    # googlesource 被墙: 每次尝试都确保 AOSP 补充仓库走清华
+    git config --global url."https://aosp.tuna.tsinghua.edu.cn/".insteadOf "https://android.googlesource.com/"
     if repo sync -c -j8 --force-sync --prune; then
         sync_ok=1
         break
