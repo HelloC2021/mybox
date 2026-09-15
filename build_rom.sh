@@ -7,8 +7,9 @@ set -e
 STAGE=${1:-kernel}
 ROOT=/mnt/data/aosp
 MYBOX=/mnt/data/mybox
-# github 直连 (无代理加速); 清理历史遗留的 dockermirror 重写
-git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
+# github 全部走 dockermirror 加速 (不经代理); AOSP googlesource 走清华
+git config --global url."https://dockermirror.truking.top/https://github.com/".insteadOf "https://github.com/"
+git config --global url."https://aosp.tuna.tsinghua.edu.cn/".insteadOf "https://android.googlesource.com/"
 git config --global user.email builder@local
 git config --global user.name builder
 # repo 工具源码走 GitHub 官方源 (gerrit.googlesource.com 被墙; 国内镜像 git 服务有排队限流)

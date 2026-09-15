@@ -90,6 +90,8 @@ export REPO_URL="${REPO_URL:-https://github.com/GerritCodeReview/git-repo}"
 echo "=== [1/7] git 配置 (github 直连) ==="
 # 清理历史遗留的 dockermirror insteadOf 重写, 确保全部直连
 git config --global --unset-all url."https://dockermirror.truking.top/https://github.com/".insteadOf 2>/dev/null || true
+# googlesource (Google 域) 被墙: AOSP 补充仓库走清华镜像
+git config --global url."https://aosp.tuna.tsinghua.edu.cn/".insteadOf "https://android.googlesource.com/"
 git config --global user.email builder@local
 git config --global user.name builder
 
